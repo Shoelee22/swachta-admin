@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { AdminShell } from '../../../components/AdminShell'
 import { supabase } from '../../../lib/supabase'
 
 type BookingDetail = {
@@ -81,15 +82,15 @@ function BookingDetailInner() {
   }
 
   if (!id) {
-    return <main style={{ padding: 32 }}><p style={{ color: '#E53935' }}>Missing booking id.</p><Link href="/bookings" style={{ color: '#158263' }}>Back to bookings</Link></main>
+    return <AdminShell><div style={{ padding: 32 }}><p style={{ color: '#E53935' }}>Missing booking id.</p><Link href="/bookings" style={{ color: '#158263' }}>Back to bookings</Link></div></AdminShell>
   }
 
   if (error && !booking) {
-    return <main style={{ padding: 32 }}><p style={{ color: '#E53935' }}>{error}</p><Link href="/bookings" style={{ color: '#158263' }}>Back to bookings</Link></main>
+    return <AdminShell><div style={{ padding: 32 }}><p style={{ color: '#E53935' }}>{error}</p><Link href="/bookings" style={{ color: '#158263' }}>Back to bookings</Link></div></AdminShell>
   }
 
   if (!booking) {
-    return <main style={{ padding: 32 }}><p style={{ color: '#6B7280' }}>Loading…</p></main>
+    return <AdminShell><div style={{ padding: 32 }}><p style={{ color: '#6B7280' }}>Loading…</p></div></AdminShell>
   }
 
   const address = booking.addresses
@@ -97,49 +98,51 @@ function BookingDetailInner() {
     : '—'
 
   return (
-    <main style={{ padding: 32, maxWidth: 720 }}>
-      <Link href="/bookings" style={{ color: '#158263', fontWeight: 600 }}>‹ Bookings</Link>
-      <h1 style={{ fontSize: 24, color: '#1B382C', marginTop: 12 }}>{booking.services?.name ?? 'Booking'}</h1>
-      <p style={{ color: '#6B7280', marginTop: 4 }}>{booking.booking_code}</p>
+    <AdminShell>
+      <div style={{ padding: 32, maxWidth: 720 }}>
+        <Link href="/bookings" style={{ color: '#158263', fontWeight: 600 }}>‹ Bookings</Link>
+        <h1 style={{ fontSize: 24, color: '#1B382C', marginTop: 12 }}>{booking.services?.name ?? 'Booking'}</h1>
+        <p style={{ color: '#6B7280', marginTop: 4 }}>{booking.booking_code}</p>
 
-      <div style={{ marginTop: 20, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 16, padding: 20, display: 'grid', gap: 10 }}>
-        <Row label="Customer" value={booking.users?.full_name ?? '—'} />
-        <Row label="Phone" value={booking.users?.phone ?? '—'} />
-        <Row label="Date" value={booking.scheduled_date} />
-        <Row label="Slot" value={booking.pickup_slots?.label ?? '—'} />
-        <Row label="Address" value={address} />
-        <Row label="Amount" value={`₹${booking.price}`} />
-        <Row label="Status" value={booking.status.replaceAll('_', ' ')} />
-        <Row label="Payment" value={booking.payment_status} />
+        <div style={{ marginTop: 20, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 16, padding: 20, display: 'grid', gap: 10 }}>
+          <Row label="Customer" value={booking.users?.full_name ?? '—'} />
+          <Row label="Phone" value={booking.users?.phone ?? '—'} />
+          <Row label="Date" value={booking.scheduled_date} />
+          <Row label="Slot" value={booking.pickup_slots?.label ?? '—'} />
+          <Row label="Address" value={address} />
+          <Row label="Amount" value={`₹${booking.price}`} />
+          <Row label="Status" value={booking.status.replaceAll('_', ' ')} />
+          <Row label="Payment" value={booking.payment_status} />
+        </div>
+
+        <h2 style={{ fontSize: 17, color: '#1B382C', marginTop: 28 }}>Assign worker</h2>
+        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <select value={workerId} onChange={(e) => setWorkerId(e.target.value)} style={{ minHeight: 44, borderRadius: 10, border: '1px solid #E5E7EB', padding: '0 12px', flex: 1, minWidth: 220 }}>
+            <option value="">Select worker…</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>{w.users?.full_name ?? w.employee_code}</option>
+            ))}
+          </select>
+          <button type="button" onClick={assign} disabled={busy || !workerId || booking.status !== 'confirmed'} style={buttonStyle}>
+            {booking.status === 'confirmed' ? 'Assign' : `Assign (needs confirmed, is ${booking.status})`}
+          </button>
+        </div>
+
+        <h2 style={{ fontSize: 17, color: '#1B382C', marginTop: 28 }}>Update status</h2>
+        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} style={{ minHeight: 44, borderRadius: 10, border: '1px solid #E5E7EB', padding: '0 12px', flex: 1, minWidth: 220 }}>
+            <option value="">Select status…</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
+            ))}
+          </select>
+          <button type="button" onClick={updateStatus} disabled={busy || !nextStatus} style={buttonStyle}>Update</button>
+        </div>
+
+        {message ? <p style={{ color: '#158263', marginTop: 16 }}>{message}</p> : null}
+        {error ? <p style={{ color: '#E53935', marginTop: 16 }}>{error}</p> : null}
       </div>
-
-      <h2 style={{ fontSize: 17, color: '#1B382C', marginTop: 28 }}>Assign worker</h2>
-      <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-        <select value={workerId} onChange={(e) => setWorkerId(e.target.value)} style={{ minHeight: 44, borderRadius: 10, border: '1px solid #E5E7EB', padding: '0 12px', flex: 1, minWidth: 220 }}>
-          <option value="">Select worker…</option>
-          {workers.map((w) => (
-            <option key={w.id} value={w.id}>{w.users?.full_name ?? w.employee_code}</option>
-          ))}
-        </select>
-        <button type="button" onClick={assign} disabled={busy || !workerId || booking.status !== 'confirmed'} style={buttonStyle}>
-          {booking.status === 'confirmed' ? 'Assign' : `Assign (needs confirmed, is ${booking.status})`}
-        </button>
-      </div>
-
-      <h2 style={{ fontSize: 17, color: '#1B382C', marginTop: 28 }}>Update status</h2>
-      <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-        <select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} style={{ minHeight: 44, borderRadius: 10, border: '1px solid #E5E7EB', padding: '0 12px', flex: 1, minWidth: 220 }}>
-          <option value="">Select status…</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
-          ))}
-        </select>
-        <button type="button" onClick={updateStatus} disabled={busy || !nextStatus} style={buttonStyle}>Update</button>
-      </div>
-
-      {message ? <p style={{ color: '#158263', marginTop: 16 }}>{message}</p> : null}
-      {error ? <p style={{ color: '#E53935', marginTop: 16 }}>{error}</p> : null}
-    </main>
+    </AdminShell>
   )
 }
 
@@ -165,7 +168,7 @@ const buttonStyle: React.CSSProperties = {
 
 export default function BookingDetailPage() {
   return (
-    <Suspense fallback={<main style={{ padding: 32 }}><p style={{ color: '#6B7280' }}>Loading…</p></main>}>
+    <Suspense fallback={<AdminShell><div style={{ padding: 32, color: '#6B7280' }}>Loading…</div></AdminShell>}>
       <BookingDetailInner />
     </Suspense>
   )
